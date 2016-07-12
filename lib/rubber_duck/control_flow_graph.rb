@@ -6,9 +6,18 @@ module RubberDuck
       @edges = Set.new
     end
 
+    Location = Struct.new(:start_line, :start_column, :end_line, :end_column) do
+      def self.from_loc(loc)
+        new(loc.first_line, loc.column, loc.last_line, loc.last_column)
+      end
+    end
+
     module Vertex
+      class Base
+      end
+
       # Singleton
-      class Toplevel
+      class Toplevel < Base
         def ==(other)
           other.is_a? self.class
         end
@@ -22,7 +31,37 @@ module RubberDuck
         end
       end
 
-      class MethodBody
+      class SendNode < Base
+        # Location
+        attr_reader :location
+
+        attr_reader :method_name
+
+        # Optional
+        attr_reader :node
+
+        def initialize(location:, method_name:, node:)
+          @location = location
+          @method_name = method_name
+          @node = node
+        end
+
+        def ==(other)
+          if other.is_a?(SendNode)
+            location == other.location && method_name == other.method_name
+          end
+        end
+
+        def eql?(other)
+          self == other
+        end
+
+        def hash
+          location.hash ^ method_name.hash
+        end
+      end
+
+      class MethodBody < Base
         attr_reader :body
 
         def initialize(body:)
@@ -43,30 +82,43 @@ module RubberDuck
       end
     end
 
-    class Edge
-      attr_reader :from, :to, :kind
+    module Edge
+      class Base
+        attr_reader :from, :to
 
-      def initialize(from, to, kind)
-        raise "Unexpected kind #{kind}" unless %i(name).include?(kind)
+        def initialize(from:, to:)
+          @from = from
+          @to = to
+        end
 
-        @from = from
-        @to = to
-        @kind = kind
-      end
+        def eql?(other)
+          if other.class == self.class
+            from == other.from && to == other.to
+          end
+        end
 
-      def eql?(other)
-        if other.is_a? Edge
-          from == other.from && to == other.to && kind == other.kind
+        def hash
+          from.hash ^ to.hash
         end
       end
 
-      def hash
-        from.hash ^ to.hash ^ kind.hash
+      # Node in included in method definition
+      # From MethodBody to SendNode
+      class MethodBody < Base
+      end
+
+      # Method call
+      # from SendNode to MethodBody
+      class Call < Base
       end
     end
 
-    def add_edge(from, to, kind)
-      edges << Edge.new(from, to, kind)
+    def add_call_edge(from, to)
+      edges << Edge::Call.new(from: from, to: to)
+    end
+
+    def add_body_edge(from, to)
+      edges << Edge::MethodBody.new(from: from, to: to)
     end
 
     def has_edge?(from: nil, to: nil)

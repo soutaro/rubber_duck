@@ -20,6 +20,19 @@ def format_vertex(vertex)
     "Toplevel"
   when RubberDuck::ControlFlowGraph::Vertex::MethodBody
     "\"#{vertex.body.name}@#{vertex.body.owner.name || vertex.body.owner.id}\""
+  when RubberDuck::ControlFlowGraph::Vertex::SendNode
+    "\"#{vertex.method_name}:#{vertex.location.start_line}:#{vertex.location.start_column}\""
+  end
+end
+
+def format_vertex_option(vertex)
+  case vertex
+  when RubberDuck::ControlFlowGraph::Vertex::Toplevel
+    "[shape = doublecircle]"
+  when RubberDuck::ControlFlowGraph::Vertex::MethodBody
+    ""
+  when RubberDuck::ControlFlowGraph::Vertex::SendNode
+    "[shape = box]"
   end
 end
 
@@ -58,7 +71,7 @@ EOD
   end
 
   vs.each do |body|
-    io.puts "#{format_vertex(body)};"
+    io.puts "#{format_vertex(body)} #{format_vertex_option(body)};"
   end
 
   cfg.edges.each do |edge|

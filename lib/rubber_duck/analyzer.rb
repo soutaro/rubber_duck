@@ -100,8 +100,14 @@ module RubberDuck
             end
           end
 
-          bodys.each do |body|
-            graph.add_edge(current_vertex, ControlFlowGraph::Vertex::MethodBody.new(body: body), :name)
+          loc = ControlFlowGraph::Location.from_loc(expr.loc)
+          call_vertex = ControlFlowGraph::Vertex::SendNode.new(location: loc, method_name: method, node: expr)
+
+          unless bodys.empty?
+            graph.add_body_edge(current_vertex, call_vertex)
+            bodys.each do |body|
+              graph.add_call_edge(call_vertex, ControlFlowGraph::Vertex::MethodBody.new(body: body))
+            end
           end
 
           analyze_children(expr)
