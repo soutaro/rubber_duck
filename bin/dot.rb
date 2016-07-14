@@ -22,6 +22,8 @@ def format_vertex(vertex)
     "\"#{vertex.body.name}@#{vertex.body.owner.name || vertex.body.owner.id}\""
   when RubberDuck::ControlFlowGraph::Vertex::SendNode
     "\"#{vertex.method_name}:#{vertex.location.start_line}:#{vertex.location.start_column}\""
+  when RubberDuck::ControlFlowGraph::Vertex::DoSend
+    "\"#{vertex.method_body.name}@#{vertex.method_body.owner.name || vertex.method_body.owner.id}:#{vertex.block_body.loc.first_line}:#{vertex.block_body.loc.column}\""
   end
 end
 
@@ -32,6 +34,8 @@ def format_vertex_option(vertex)
   when RubberDuck::ControlFlowGraph::Vertex::MethodBody
     ""
   when RubberDuck::ControlFlowGraph::Vertex::SendNode
+    "[shape = box]"
+  when RubberDuck::ControlFlowGraph::Vertex::DoSend
     "[shape = box]"
   end
 end

@@ -86,22 +86,12 @@ module RubberDuck
         case expr.type
         when :send
           receiver = expr.children[0]
-          method = expr.children[1].to_s
+          method_name = expr.children[1].to_s
           args = expr.children.drop(2)
-
-          bodys = method_bodys(method).select {|body|
-            valid_application?(body.parameters, args)
-          }
-
-          if receiver && receiver.type == :const
-            const = database.resolve_constant(receiver.children.last.to_s, context.map(&:name))
-            if const
-              bodys = self.class.possible_fcall_bodys(method, bodys, This.new(:module, const))
-            end
-          end
+          bodys = possible_call_bodys(receiver, method_name, args)
 
           loc = ControlFlowGraph::Location.from_loc(expr.loc)
-          call_vertex = ControlFlowGraph::Vertex::SendNode.new(location: loc, method_name: method, node: expr)
+          call_vertex = ControlFlowGraph::Vertex::SendNode.new(location: loc, method_name: method_name, node: expr)
 
           unless bodys.empty?
             graph.add_body_edge(current_vertex, call_vertex)
@@ -111,6 +101,30 @@ module RubberDuck
           end
 
           analyze_children(expr)
+
+        when :block
+          send_node = expr.children.first
+          receiver = send_node.children[0]
+          method_name = send_node.children[1].to_s
+          args = send_node.children.drop(2)
+
+          bodys = possible_call_bodys(receiver, method_name, args)
+
+          block_body_node = expr.children[2]
+
+          unless bodys.empty?
+            bodys.each do |method_body|
+              do_send_vertex = ControlFlowGraph::Vertex::DoSend.new(method_body: method_body, block_body: block_body_node)
+              graph.add_body_edge(current_vertex, do_send_vertex)
+              push_vertex do_send_vertex do
+                analyze_expr(block_body_node)
+              end
+            end
+          end
+
+          args.each do
+            analyze_children(args)
+          end
 
         when :def
           name = expr.children[0].to_s
@@ -155,6 +169,21 @@ module RubberDuck
 
       def method_bodys(name)
         database.methods.values.select {|method| method.name == name }
+      end
+
+      def possible_call_bodys(receiver, method_name, args)
+        bodys = method_bodys(method_name).select {|body|
+          valid_application?(body.parameters, args)
+        }
+
+        if receiver && receiver.type == :const
+          const = database.resolve_constant(receiver.children.last.to_s, context.map(&:name))
+          if const
+            bodys = self.class.possible_fcall_bodys(method_name, bodys, This.new(:module, const))
+          end
+        end
+
+        bodys
       end
 
       def self.possible_fcall_bodys(name, bodys, current_self)

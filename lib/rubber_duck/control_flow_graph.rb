@@ -80,6 +80,29 @@ module RubberDuck
           body.hash
         end
       end
+
+      # Intermediate node to record method call with block
+      class DoSend < Base
+        attr_reader :method_body
+        attr_reader :block_body
+
+        def initialize(method_body:, block_body:)
+          @method_body = method_body
+          @block_body = block_body
+        end
+
+        def ==(other)
+          other.is_a?(DoSend) && method_body == other.method_body && block_body == other.block_body
+        end
+
+        def eql?(other)
+          self == other
+        end
+
+        def has
+          method_body.hash ^ block_body.hash
+        end
+      end
     end
 
     module Edge

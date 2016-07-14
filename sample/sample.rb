@@ -29,6 +29,10 @@ company = Company.new
 
 company.add_person "Soutaro", "080-1234-5678"
 
+if false
+  p company.format
+end
+
 company.each_person do |person|
   p person.format
 end
