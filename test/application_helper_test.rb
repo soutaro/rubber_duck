@@ -48,6 +48,12 @@ describe RubberDuck::ApplicationHelper do
       refute valid_application?([[:req, :a], [:req, :b], [:opt, :c], [:rest, :d], [:keyreq, :e], [:key, :f], [:keyrest, :g]], args("f(1, 2)"))
       refute valid_application?([[:req, :a], [:req, :b], [:opt, :c], [:rest, :d], [:keyreq, :e], [:key, :f], [:keyrest, :g]], args("f(1, 2, f: 3)"))
     end
+
+    it "accepts block pass arg" do
+      assert valid_application?([[:block, :b]], args("f(&block)"))
+      assert valid_application?([], args("f(&block)"))
+      assert valid_application?([[:req, :x]], args("f(1, &block)"))
+    end
   end
 
   def args(script)

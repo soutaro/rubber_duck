@@ -5,6 +5,10 @@ module RubberDuck
     def valid_application?(parameters, args)
       args = args.dup
 
+      if args.last&.type == :block_pass
+        args.pop
+      end
+
       params = parameters.group_by {|param| param[0] }
 
       Array(params[:req]).each do |_|

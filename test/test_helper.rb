@@ -15,6 +15,10 @@ module TestHelper
     RubberDuck::Analyzer.new(database(script), [ast])
   end
 
+  def data_script_path(script)
+    Pathname(__dir__) + "data" + script
+  end
+
   def database(script)
     DB_CACHE[script] ||= Defsdb::Database.open(Pathname(__dir__).parent + "tmp/data" + "#{script}.json")
   end
