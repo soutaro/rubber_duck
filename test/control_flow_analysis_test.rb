@@ -1,6 +1,6 @@
 require_relative 'test_helper'
 
-describe RubberDuck::Analyzer do
+describe RubberDuck::ControlFlowAnalysis do
   include TestHelper
 
   it "does something" do
