@@ -39,3 +39,13 @@ end
 #     X.f
 #   end
 # end
+
+class Hoge
+  include A::B
+
+  def hello
+    g()
+  end
+end
+
+Hoge.new().hello
