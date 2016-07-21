@@ -4,6 +4,23 @@ module RubberDuck
       def self.from_node(file:, node:)
         new(file, node.loc.first_line, node.loc.column, node.loc.last_line, node.loc.last_column)
       end
+
+      def ==(other)
+        other.is_a?(self.class) &&
+          file == other.file &&
+          start_line == other.start_line &&
+          start_column == other.start_column &&
+          end_line == other.end_line &&
+          end_column == other.end_column
+      end
+
+      def eql?(other)
+        self == other
+      end
+
+      def hash
+        file.hash ^ start_line ^ start_column ^ end_line ^ end_column
+      end
     end
 
     module Relation
@@ -185,7 +202,7 @@ module RubberDuck
               add_relation block_call
             end
 
-            analyze_node node.children[0]
+            analyze_children node.children[0]
             analyze_node node.children[1]
 
             push_caller node do
@@ -243,7 +260,7 @@ module RubberDuck
 
         def method_body_from_database(node)
           analyzer.database.each_method_body.find {|body|
-            body.name == node.children[0].to_s && body.location && body.location.first == file.to_s && body.location.last == node.loc.first_line
+            body.name == node.children[0].to_s && body.location && Pathname(body.location.first).realpath.to_s == file.to_s && body.location.last == node.loc.first_line
           }
         end
 

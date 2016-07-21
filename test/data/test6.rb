@@ -21,3 +21,5 @@ end
 h do
   g
 end
+
+f
