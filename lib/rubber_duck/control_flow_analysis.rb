@@ -275,10 +275,16 @@ module RubberDuck
 
           case
           when receiver && receiver.type == :const
-            constant = resolve_constant(receiver.children.last.to_s)
+            path = []
+            c = receiver
+            while c
+              path.unshift c.children.last.to_s
+              c = c.children.first
+            end
+            constant = resolve_constant(path.join("::"))
             Array(constant.defined_singleton_methods.find {|method|
               method.name == name && valid_application?(method.body.parameters, args)
-            }.body)
+            }&.body)
           else
             analyzer.database.each_method_body.select {|body|
               body.name == name && valid_application?(body.parameters, args)
