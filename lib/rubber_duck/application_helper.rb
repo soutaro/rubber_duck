@@ -18,6 +18,10 @@ module RubberDuck
         args.shift if args.first.type != :splat
       end
 
+      if params[:rest] && !params[:keyreq] && !params[:key] && !params[:keyrest]
+        return true
+      end
+
       if args.empty?
         params[:keyreq] == nil
       else

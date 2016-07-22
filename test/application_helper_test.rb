@@ -26,6 +26,7 @@ describe RubberDuck::ApplicationHelper do
       assert valid_application?([[:rest]], args("f(1,2,3)"))
       assert valid_application?([[:req, :x], [:rest]], args("f(1,2,3)"))
       refute valid_application?([[:req, :x], [:rest]], args("f()"))
+      assert valid_application?([[:rest]], args("f(a: 1)"))
     end
 
     it "accepts keyword args" do
