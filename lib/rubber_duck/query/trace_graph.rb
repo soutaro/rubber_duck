@@ -141,7 +141,7 @@ module RubberDuck
           end
         end
 
-        calculate_trace(current: q.first, rest: q.drop(1))
+        calculate_trace(current: q.first, rest: q.drop(1)).map {|t| [q.first] + t }
       end
 
       private
@@ -277,7 +277,9 @@ module RubberDuck
         next_node = rest.first
 
         traces = [].tap do |array|
-          calculate_trace0(from: current, to: next_node, results: array)
+          each_edge_from(current) do |edge|
+            calculate_trace0(from: edge.destination, to: next_node, results: array)
+          end
         end
 
         if traces.empty?
@@ -286,7 +288,7 @@ module RubberDuck
           if rest.size > 1
             traces.flat_map {|prefix|
               calculate_trace(current: prefix.last, rest: rest.drop(1)).map {|suffix|
-                prefix + suffix.drop(1)
+                prefix + suffix
               }
             }
           else
@@ -302,10 +304,16 @@ module RubberDuck
         when from.is_a?(Node::MethodBody) && from.method_body == to.method_body
           results << prefix + [from]
         when reachable_method_body?(from: from, method_body: to.method_body)
-          edges.each do |edge|
-            if edge.source == from
-              calculate_trace0(from: edge.destination, to: to, prefix: prefix + [from], results: results)
-            end
+          each_edge_from(from) do |edge|
+            calculate_trace0(from: edge.destination, to: to, prefix: prefix + [from], results: results)
+          end
+        end
+      end
+
+      def each_edge_from(source)
+        edges.each do |edge|
+          if edge.source == source
+            yield edge
           end
         end
       end

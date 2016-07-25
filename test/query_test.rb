@@ -37,6 +37,14 @@ describe RubberDuck::Query do
     refute_empty graph.select_trace(:toplevel, "Object#fact", "Object#fact")
   end
 
+  it "analyzes recursive call2" do
+    analyzer = analyzer("test5.rb")
+    graph = RubberDuck::Query::TraceGraph.new(analyzer: analyzer)
+
+    # no recursive call of A::B#g
+    assert_empty graph.select_trace("A::B#g", "A::B#g")
+  end
+
   it "analyzes block call" do
     analyzer = analyzer("test6.rb")
     graph = RubberDuck::Query::TraceGraph.new(analyzer: analyzer)
