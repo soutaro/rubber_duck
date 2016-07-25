@@ -102,6 +102,21 @@ module RubberDuck
         analyzer
       end
 
+      def find_method_body(name)
+        case name
+        when /\./
+          klass_name, method_name = name.split(/\./)
+          klass = database.resolve_constant(klass_name)
+          klass.defined_singleton_methods.find {|method| method.name == method_name }&.body
+        when /#/
+          klass_name, method_name = name.split(/#/)
+          klass = database.resolve_constant(klass_name)
+          klass.defined_instance_methods.find {|method| method.name == method_name }&.body
+        else
+          raise "Unknown method name: #{name}"
+        end
+      end
+
       class Processor
         include ApplicationHelper
 

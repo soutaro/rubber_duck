@@ -20,44 +20,40 @@ describe RubberDuck::Query do
     assert_empty RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: query2)
   end
 
+  it "does something2" do
+    analyzer = analyzer("test5.rb")
+    graph = RubberDuck::Query::TraceGraph.new(analyzer: analyzer)
+
+    refute_empty graph.select_trace(:toplevel, "A::B#g")
+    refute_empty graph.select_trace(:toplevel, "A::B#g", "Array#f")
+    assert_empty graph.select_trace(:toplevel, "A::B#g", "String#f")
+  end
+
   it "analyze recursive call" do
     analyzer = analyzer("test1.rb")
+    graph = RubberDuck::Query::TraceGraph.new(analyzer: analyzer)
 
-    q1 = RubberDuck::Query::Trace.root.call("Object#fact")
-    q2 = q1.call("Object#fact")
-
-    refute_empty RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: q1)
-    refute_empty RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: q2)
+    refute_empty graph.select_trace(:toplevel, "Object#fact")
+    refute_empty graph.select_trace(:toplevel, "Object#fact", "Object#fact")
   end
 
   it "analyzes block call" do
     analyzer = analyzer("test6.rb")
+    graph = RubberDuck::Query::TraceGraph.new(analyzer: analyzer)
 
-    q1 = RubberDuck::Query::Trace.root.call("Object#f").call("Object#g")
-    q2 = RubberDuck::Query::Trace.root.call("Object#h").call("Object#g")
-
-    refute_empty RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: q1)
-    refute_empty RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: q2)
-
-    assert_empty RubberDuck::Query::Trace.select(analyzer,
-                                                 start: :toplevel,
-                                                 query: RubberDuck::Query::Trace.root.call("Object#f").call("Object#h"))
+    refute_empty graph.select_trace(:toplevel, "Object#f", "Object#g")
+    refute_empty graph.select_trace(:toplevel, "Object#h", "Object#g")
   end
 
   it "analyzes block call2" do
     analyzer = analyzer("test6.rb")
+    graph = RubberDuck::Query::TraceGraph.new(analyzer: analyzer)
 
-    q1 = RubberDuck::Query::Trace.root.call("Object#f").call("Object#g")
-    q2 = RubberDuck::Query::Trace.root.call("Object#h").call("Object#g")
-    q3 = RubberDuck::Query::Trace.root.call("Object#g")
-
-    t1 = RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: q1)
-    t2 = RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: q2)
-    t3 = RubberDuck::Query::Trace.select(analyzer, start: :toplevel, query: q3)
+    t1 = graph.select_trace(:toplevel, "Object#f", "Object#g")
+    t2 = graph.select_trace(:toplevel, "Object#h", "Object#g")
+    t3 = graph.select_trace(:toplevel, "Object#g")
 
     assert_empty(t3 - t1)
     refute_empty(t3 - t2)
-
-    p t3-t2
   end
 end

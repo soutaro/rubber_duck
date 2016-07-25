@@ -1,5 +1,7 @@
 require 'pathname'
 require 'set'
+require 'tsort'
+
 require 'defsdb'
 require 'parser/current'
 

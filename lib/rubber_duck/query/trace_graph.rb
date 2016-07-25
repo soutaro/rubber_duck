@@ -74,9 +74,42 @@ module RubberDuck
         end
       end
 
+      class Sort
+        include TSort
+
+        attr_reader :graph
+        attr_reader :child_cache
+        attr_reader :nodes
+
+        def initialize(graph:)
+          @graph = graph
+
+          @nodes = Set.new
+          @child_cache = {}
+
+          graph.each_edge do |edge|
+            source = edge.source
+            child_cache[source] ||= []
+            child_cache[source] << edge.destination
+
+            nodes << edge.source
+            nodes << edge.destination
+          end
+        end
+
+        def tsort_each_child(node, &block)
+          child_cache[node]&.each(&block)
+        end
+
+        def tsort_each_node(&block)
+          nodes.each &block
+        end
+      end
+
       attr_reader :edges
       attr_reader :nodes
       attr_reader :analyzer
+      attr_reader :reachable_nodes
 
       def initialize(analyzer:)
         @edges = Set.new
@@ -94,6 +127,23 @@ module RubberDuck
         nodes.each &block
       end
 
+      def select_trace(*query)
+        raise "Query should have at least two components: #{query.join(", ")}" if query.size < 2
+
+        q = query.map do |component|
+          case component
+          when String
+            Node::MethodBody.new(method_body: analyzer.find_method_body(component))
+          when Symbol
+            component
+          else
+            raise "Unknown query component: #{component}"
+          end
+        end
+
+        calculate_trace(current: q.first, rest: q.drop(1))
+      end
+
       private
 
       def construct
@@ -105,6 +155,8 @@ module RubberDuck
             construct_graph_from(source: source, block: nil, block_loc: nil)
           end
         end
+
+        calculate_reachability
       end
 
       def construct_graph_from(source:, block:, block_loc:)
@@ -185,6 +237,77 @@ module RubberDuck
 
       def relations_for(source:)
         @relations_map[source]
+      end
+
+      def calculate_reachability
+        @reachable_nodes = {}
+
+        sort = Sort.new(graph: self)
+
+        sort.strongly_connected_components.each do |nodes|
+          node_set = Set.new
+
+          sort.each_strongly_connected_component_from(nodes.first) do |component|
+            component.each do |node|
+              node_set << node
+            end
+          end
+
+          nodes.each do |node|
+            reachable_nodes[node] = node_set
+          end
+        end
+      end
+
+      def reachable_nodes_from(node)
+        reachable_nodes[node] || Set.new
+      end
+
+      def reachable_method_body?(from:, method_body:)
+        reachable_nodes_from(from).any? {|node|
+          node.is_a?(Node::MethodBody) && node.method_body == method_body
+        }
+      end
+
+      def reachable_node?(from:, node:)
+        reachable_nodes_from(from).member?(node)
+      end
+
+      def calculate_trace(current:, rest:)
+        next_node = rest.first
+
+        traces = [].tap do |array|
+          calculate_trace0(from: current, to: next_node, results: array)
+        end
+
+        if traces.empty?
+          []
+        else
+          if rest.size > 1
+            traces.flat_map {|prefix|
+              calculate_trace(current: prefix.last, rest: rest.drop(1)).map {|suffix|
+                prefix + suffix.drop(1)
+              }
+            }
+          else
+            traces
+          end
+        end
+      end
+
+      def calculate_trace0(from:, to:, prefix: [], results: [])
+        return if prefix.include?(from)
+
+        case
+        when from.is_a?(Node::MethodBody) && from.method_body == to.method_body
+          results << prefix + [from]
+        when reachable_method_body?(from: from, method_body: to.method_body)
+          edges.each do |edge|
+            if edge.source == from
+              calculate_trace0(from: edge.destination, to: to, prefix: prefix + [from], results: results)
+            end
+          end
+        end
       end
 
       def visit(node)
