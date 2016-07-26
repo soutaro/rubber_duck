@@ -275,7 +275,16 @@ module RubberDuck
 
         def method_body_from_database(node)
           analyzer.database.each_method_body.find {|body|
-            body.name == node.children[0].to_s && body.location && Pathname(body.location.first).realpath.to_s == file.to_s && body.location.last == node.loc.first_line
+            nameok = body.name == node.children[0].to_s
+
+            path = body.location ? Pathname(body.location.first) : nil
+            fileok = if path&.file?
+                       path.realpath.to_s == file.to_s && body.location.last == node.loc.first_line
+                     else
+                       true
+                     end
+
+            nameok && fileok
           }
         end
 
