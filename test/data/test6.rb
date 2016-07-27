@@ -1,5 +1,5 @@
 def f
-  yield
+  yield if block_given?
 end
 
 def g
@@ -23,3 +23,9 @@ h do
 end
 
 f
+
+def test1
+  [].each do |_|
+    yield
+  end
+end

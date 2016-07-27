@@ -87,6 +87,35 @@ describe RubberDuck::ControlFlowAnalysis do
       assert has_call_relation?(analyzer, from: "Object#h", to: "Object#f", blockarg: true, pass_through: true)
       assert has_call_relation?(analyzer, from: "Object#i", to: "Object#f", blockarg: true, pass_through: false)
     end
+
+  end
+
+  describe "Implementation relation" do
+    it "exists if method definition found during analysis" do
+      database = database("test6.rb")
+
+      analyzer = RubberDuck::ControlFlowAnalysis::Analyzer.run(database: database) do |analyzer|
+        analyzer.add_source_code data_script_path("test6.rb")
+      end
+
+      assert(analyzer.relations.any? {|rel|
+        rel.is_a?(RubberDuck::ControlFlowAnalysis::Relation::Implementation) &&
+          rel.method_body == find_method_body(analyzer, "Object#test1")
+      })
+    end
+
+    it "does not exists if method definition is not found" do
+      database = database("test6.rb")
+
+      analyzer = RubberDuck::ControlFlowAnalysis::Analyzer.run(database: database) do |analyzer|
+        analyzer.add_source_code data_script_path("test6.rb")
+      end
+
+      refute(analyzer.relations.any? {|rel|
+        rel.is_a?(RubberDuck::ControlFlowAnalysis::Relation::Implementation) &&
+          rel.method_body == find_method_body(analyzer, "Class.new")
+      })
+    end
   end
 
   def has_call_relation?(analyzer, from:, to:, blockarg: false, pass_through: nil)

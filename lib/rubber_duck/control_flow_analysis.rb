@@ -73,6 +73,14 @@ module RubberDuck
           @location = location
         end
       end
+
+      class Implementation < Base
+        attr_reader :method_body
+
+        def initialize(method_body:)
+          @method_body = method_body
+        end
+      end
     end
 
     class Analyzer
@@ -243,6 +251,8 @@ module RubberDuck
                   analyze_children node
                 end
               end
+
+              add_relation Relation::Implementation.new(method_body: body)
             else
               puts "Unknown method definition in database found; skipping... #{file}:#{node.loc.first_line}"
             end
