@@ -42,17 +42,29 @@ describe RubberDuck::ControlFlowAnalysis do
     refute has_call_relation?(analyzer, from: "Object#entry2", to: "String#f")
   end
 
-  it "analyze test5.rb" do
-    database = database("test5.rb")
+  describe "analyzing test5.rb" do
+    it "has extra precision on constant method call" do
+      database = database("test5.rb")
 
-    analyzer = RubberDuck::ControlFlowAnalysis::Analyzer.run(database: database) do |analyzer|
-      analyzer.add_source_code data_script_path("test5.rb")
+      analyzer = RubberDuck::ControlFlowAnalysis::Analyzer.run(database: database) do |analyzer|
+        analyzer.add_source_code data_script_path("test5.rb")
+      end
+
+      assert has_call_relation?(analyzer, from: "A#g", to: "String#f")
+      refute has_call_relation?(analyzer, from: "A#g", to: "Array#f")
+      assert has_call_relation?(analyzer, from: "A::B#g", to: "Array#f")
+      refute has_call_relation?(analyzer, from: "A::B#g", to: "String#f")
     end
 
-    assert has_call_relation?(analyzer, from: "A#g", to: "String#f")
-    refute has_call_relation?(analyzer, from: "A#g", to: "Array#f")
-    assert has_call_relation?(analyzer, from: "A::B#g", to: "Array#f")
-    refute has_call_relation?(analyzer, from: "A::B#g", to: "String#f")
+    it "does not have extra precision on non constant call" do
+      database = database("test5.rb")
+      analyzer = RubberDuck::ControlFlowAnalysis::Analyzer.run(database: database) do |analyzer|
+        analyzer.add_source_code data_script_path("test5.rb")
+      end
+
+      assert has_call_relation?(analyzer, from: "Object#entry", to: "A#g")
+      assert has_call_relation?(analyzer, from: "Object#entry", to: "A::B#g")
+    end
   end
 
   Block = Struct.new(:line)

@@ -279,6 +279,8 @@ module RubberDuck
               node = node.children.first
             when :cbase
               path.unshift :root
+            else
+              raise "Unsupported node: #{const_node}"
             end
           end
 
@@ -310,7 +312,7 @@ module RubberDuck
           args = node.children.drop(2)
 
           case
-          when receiver && receiver.type == :const
+          when receiver && is_constant?(receiver)
             constant = find_constant(receiver)
             Array(constant.defined_singleton_methods.find {|method|
               method.name == name && valid_application?(method.body.parameters, args)
@@ -319,6 +321,17 @@ module RubberDuck
             analyzer.database.each_method_body.select {|body|
               body.name == name && valid_application?(body.parameters, args)
             }
+          end
+        end
+
+        def is_constant?(node)
+          case node.type
+          when :const
+            node.children[0] ? is_constant?(node.children[0]) : true
+          when :cbase
+            true
+          else
+            false
           end
         end
 

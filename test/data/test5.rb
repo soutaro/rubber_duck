@@ -49,3 +49,8 @@ class Hoge
 end
 
 Hoge.new().hello
+
+def entry
+  a = A
+  a.g
+end
