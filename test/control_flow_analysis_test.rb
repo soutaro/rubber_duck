@@ -141,12 +141,10 @@ describe RubberDuck::ControlFlowAnalysis do
     case method
     when /\./
       klass_name, method_name = method.split(/\./)
-      klass = analyzer.database.resolve_constant(klass_name)
-      klass.defined_singleton_methods.find {|method| method.name == method_name }.body
+      analyzer.database.find_method_definition(klass_name, singleton_method: method_name).body
     when /#/
       klass_name, method_name = method.split(/#/)
-      klass = analyzer.database.resolve_constant(klass_name)
-      klass.defined_instance_methods.find {|method| method.name == method_name }.body
+      analyzer.database.find_method_definition(klass_name, instance_method: method_name).body
     end
   end
 end

@@ -106,12 +106,10 @@ module RubberDuck
         case name
         when /\./
           klass_name, method_name = name.split(/\./)
-          klass = database.resolve_constant(klass_name)
-          klass.defined_singleton_methods.find {|method| method.name == method_name }&.body
+          database.find_method_definition(klass_name, singleton_method: method_name)&.body
         when /#/
           klass_name, method_name = name.split(/#/)
-          klass = database.resolve_constant(klass_name)
-          klass.defined_instance_methods.find {|method| method.name == method_name }&.body
+          database.find_method_definition(klass_name, instance_method: method_name)&.body
         else
           raise "Unknown method name: #{name}"
         end
@@ -122,17 +120,17 @@ module RubberDuck
 
         attr_reader :analyzer
         attr_reader :file
+        attr_reader :module_context_stack
         attr_reader :module_stack
         attr_reader :caller_stack
-        attr_reader :self_stack
         attr_reader :blockarg_stack
 
         def initialize(analyzer:)
           @analyzer = analyzer
           @file = nil
+          @module_context_stack = []
           @module_stack = []
           @caller_stack = []
-          @self_stack = []
           @blockarg_stack = []
         end
 
@@ -152,14 +150,20 @@ module RubberDuck
           @caller_stack.last
         end
 
-        def push_module(name, mod)
-          @module_stack.push [name, mod]
+        def push_module_context(mod)
+          @module_context_stack.push mod
+          yield
+          @module_context_stack.pop
+        end
+
+        def push_module(mod)
+          @module_stack.push mod
           yield
           @module_stack.pop
         end
 
         def current_module
-          @module_stack.last.last
+          @module_stack.last || analyzer.database.object_class
         end
 
         def push_blockarg(blockarg)
@@ -173,13 +177,9 @@ module RubberDuck
         end
 
         def run(file:, node:)
-          object_class = analyzer.database.resolve_constant("Object")
-
           with_file file do
-            push_module "Object", object_class do
-              push_caller :toplevel do
-                analyze_node(node)
-              end
+            push_caller :toplevel do
+              analyze_node(node)
             end
           end
         end
@@ -250,19 +250,39 @@ module RubberDuck
           when :class, :module
             name = node.children.first
 
-            if name.type == :const
-              const_name = name.children.last.to_s
-              mod = resolve_constant(name.children.last.to_s)
-              push_module const_name, mod do
+            mod = find_constant(name)
+
+            if name.children.first
+              push_module mod do
                 analyze_children node
               end
             else
-              p "Module is not constant: #{name}"
+              push_module_context mod do
+                push_module mod do
+                  analyze_children node
+                end
+              end
             end
 
           else
             analyze_children node
           end
+        end
+
+        def find_constant(const_node)
+          path = []
+          node = const_node
+          while node
+            case node.type
+            when :const
+              path.unshift node.children.last.to_s
+              node = node.children.first
+            when :cbase
+              path.unshift :root
+            end
+          end
+
+          analyzer.database.lookup_constant_path(path, current_module: current_module, module_context: module_context_stack)
         end
 
         def analyze_children(node)
@@ -277,19 +297,11 @@ module RubberDuck
           analyzer.database.each_method_body.find {|body|
             nameok = body.name == node.children[0].to_s
 
-            path = body.location ? Pathname(body.location.first) : nil
-            fileok = if path&.file?
-                       path.realpath.to_s == file.to_s && body.location.last == node.loc.first_line
-                     else
-                       true
-                     end
+            path = body.location && Pathname(body.location.first)
+            fileok = path&.file? && path.realpath.to_s == file.to_s && body.location.last == node.loc.first_line
 
             nameok && fileok
           }
-        end
-
-        def resolve_constant(name)
-          analyzer.database.resolve_constant(name, module_stack.map(&:first))
         end
 
         def method_body_candidates(node)
@@ -299,13 +311,7 @@ module RubberDuck
 
           case
           when receiver && receiver.type == :const
-            path = []
-            c = receiver
-            while c
-              path.unshift c.children.last.to_s
-              c = c.children.first
-            end
-            constant = resolve_constant(path.join("::"))
+            constant = find_constant(receiver)
             Array(constant.defined_singleton_methods.find {|method|
               method.name == name && valid_application?(method.body.parameters, args)
             }&.body)
