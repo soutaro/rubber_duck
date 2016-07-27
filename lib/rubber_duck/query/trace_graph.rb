@@ -152,14 +152,14 @@ module RubberDuck
         @relations_map.keys.each do |source|
           case source
           when Defsdb::Database::MethodBody, Symbol
-            construct_graph_from(source: source, block: nil, block_loc: nil)
+            construct_graph_from(source: source, blocks: [], block_loc: nil)
           end
         end
 
         calculate_reachability
       end
 
-      def construct_graph_from(source:, block:, block_loc:)
+      def construct_graph_from(source:, blocks: [], block_loc:)
         src_node = case source
                    when Defsdb::Database::MethodBody
                      new_node { Node::MethodBody.new(method_body: source, location: block_loc) }
@@ -180,27 +180,34 @@ module RubberDuck
             case relation
             when ControlFlowAnalysis::Relation::PassCall
               if relation.pass_through_block
-                dest_node = new_node { Node::MethodBody.new(method_body: relation.callee, location: block_loc) }
-                new_edge { Edge.new(source: src_node, destination: dest_node) }
+                unless blocks.empty?
+                  dest_node = new_node { Node::MethodBody.new(method_body: relation.callee, location: block_loc) }
+                  new_edge { Edge.new(source: src_node, destination: dest_node) }
 
-                construct_graph_from(source: relation.callee, block: block, block_loc: block_loc)
+                  construct_graph_from(source: relation.callee, blocks: blocks, block_loc: block_loc)
+                end
               end
+
             when ControlFlowAnalysis::Relation::BlockCall
               dest_node = new_node { Node::MethodBody.new(method_body: relation.callee, location: relation.location) }
               new_edge { Edge.new(source: src_node, destination: dest_node) }
 
-              construct_graph_from(source: relation.callee, block: relation.block_node, block_loc: relation.location)
+              construct_graph_from(source: relation.callee, blocks: [relation.block_node] + blocks, block_loc: relation.location)
+
             when ControlFlowAnalysis::Relation::Call
               dest_node = new_node { Node::MethodBody.new(method_body: relation.callee, location: nil) }
               new_edge { Edge.new(source: src_node, destination: dest_node) }
 
-              construct_graph_from(source: relation.callee, block: block, block_loc: block_loc)
+              construct_graph_from(source: relation.callee, blocks: [], block_loc: nil)
+
             when ControlFlowAnalysis::Relation::Yield
-              if block
+              unless blocks.empty?
+                block = blocks.first
+
                 dest_node = new_node { Node::Block.new(block_node: block) }
                 new_edge { Edge.new(source: src_node, destination: dest_node) }
 
-                construct_graph_from(source: block, block: nil, block_loc: nil)
+                construct_graph_from(source: block, blocks: blocks.drop(1), block_loc: block_loc)
 
                 yield_flag = :yielded
               end
@@ -208,11 +215,11 @@ module RubberDuck
           end
         end
 
-        if yield_flag == :no_implementation && block
-          dest_node = new_node { Node::Block.new(block_node: block) }
+        if src_node.is_a?(Node::MethodBody) && yield_flag == :no_implementation && !blocks.empty?
+          dest_node = new_node { Node::Block.new(block_node: blocks.first) }
           new_edge { Edge.new(source: src_node, destination: dest_node) }
 
-          construct_graph_from(source: block, block: nil, block_loc: nil)
+          construct_graph_from(source: blocks.first, blocks: blocks.drop(1), block_loc: block_loc)
         end
       end
 
@@ -225,6 +232,8 @@ module RubberDuck
                      relation.caller
                    when ControlFlowAnalysis::Relation::Yield
                      relation.source
+                   when ControlFlowAnalysis::Relation::Implementation
+                     # nop
                    else
                      raise "Unknown relation: #{relation.inspect}"
                    end

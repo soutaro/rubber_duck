@@ -26,6 +26,16 @@ f
 
 def test1
   [].each do |_|
-    yield
+    f do |_|
+      yield
+    end
   end
+end
+
+test1 do
+  i
+end
+
+test1 do
+  p 1
 end

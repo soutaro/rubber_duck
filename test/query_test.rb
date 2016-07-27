@@ -64,4 +64,11 @@ describe RubberDuck::Query do
     assert_empty(t3 - t1)
     refute_empty(t3 - t2)
   end
+
+  it "analyzes yield in block" do
+    analyzer = analyzer("test6.rb")
+    graph = RubberDuck::Query::TraceGraph.new(analyzer: analyzer)
+
+    refute_empty graph.select_trace(:toplevel, "Object#test1", "Object#f", "Object#i")
+  end
 end
