@@ -17,7 +17,7 @@ def format_node(node)
       "\"#{node.method_body.name}@#{owner}\""
     end
   when RubberDuck::Query::TraceGraph::Node::Block
-    "\"block:#{node.block_node.loc.first_line}:#{node.block_node.loc.column}\""
+    "\"block:#{node.block_node.loc.first_line}:#{node.block_node.loc.column}@#{node.location&.start_line}:#{node.location&.end_line}\""
   when Symbol
     "#{node}"
   end

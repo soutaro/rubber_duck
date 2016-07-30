@@ -28,14 +28,16 @@ module RubberDuck
 
         class Block
           attr_reader :block_node
+          attr_reader :location
 
-          def initialize(block_node:)
+          def initialize(block_node:, location:)
             @block_node = block_node
+            @location = location
           end
 
           def ==(other)
             if other.is_a? self.class
-              block_node == other.block_node
+              block_node == other.block_node && location == other.location
             end
           end
 
@@ -45,7 +47,7 @@ module RubberDuck
 
           def hash
             # seems Parser::AST::Node#hash does not work as expected
-            block_node.loc.to_s.hash
+            block_node.loc.to_s.hash ^ location.hash
           end
         end
       end
@@ -164,7 +166,7 @@ module RubberDuck
                    when Defsdb::Database::MethodBody
                      new_node { Node::MethodBody.new(method_body: source, location: block_loc) }
                    when Parser::AST::Node
-                     new_node { Node::Block.new(block_node: source) }
+                     new_node { Node::Block.new(block_node: source, location: block_loc) }
                    when Symbol
                      new_node { source }
                    else
@@ -189,10 +191,12 @@ module RubberDuck
               end
 
             when ControlFlowAnalysis::Relation::BlockCall
-              dest_node = new_node { Node::MethodBody.new(method_body: relation.callee, location: relation.location) }
+              loc = block_loc || relation.location
+
+              dest_node = new_node { Node::MethodBody.new(method_body: relation.callee, location: loc) }
               new_edge { Edge.new(source: src_node, destination: dest_node) }
 
-              construct_graph_from(source: relation.callee, blocks: [relation.block_node] + blocks, block_loc: relation.location)
+              construct_graph_from(source: relation.callee, blocks: [relation.block_node] + blocks, block_loc: loc)
 
             when ControlFlowAnalysis::Relation::Call
               dest_node = new_node { Node::MethodBody.new(method_body: relation.callee, location: nil) }
@@ -204,7 +208,7 @@ module RubberDuck
               unless blocks.empty?
                 block = blocks.first
 
-                dest_node = new_node { Node::Block.new(block_node: block) }
+                dest_node = new_node { Node::Block.new(block_node: block, location: block_loc) }
                 new_edge { Edge.new(source: src_node, destination: dest_node) }
 
                 construct_graph_from(source: block, blocks: blocks.drop(1), block_loc: block_loc)
@@ -216,7 +220,7 @@ module RubberDuck
         end
 
         if src_node.is_a?(Node::MethodBody) && yield_flag == :no_implementation && !blocks.empty?
-          dest_node = new_node { Node::Block.new(block_node: blocks.first) }
+          dest_node = new_node { Node::Block.new(block_node: blocks.first, location: block_loc) }
           new_edge { Edge.new(source: src_node, destination: dest_node) }
 
           construct_graph_from(source: blocks.first, blocks: blocks.drop(1), block_loc: block_loc)
